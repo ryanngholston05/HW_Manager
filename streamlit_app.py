@@ -1,6 +1,6 @@
 import streamlit as st
 
-st.set_page_config(page_title="HW Manager", page_icon="🧪", layout="centered")
+st.set_page_config(page_title="HW Manager", page_icon="📚", layout="centered")
 
 def home():
     st.title("Ryann's IST488 Homework")

@@ -3,7 +3,7 @@ import streamlit as st
 st.set_page_config(page_title="HW Manager", page_icon="📚", layout="centered")
 
 def home():
-    st.title("Ryann's IST488 Homework")
+    st.title("Ryann's IST488 Homework!")
     st.write("Welcome! Use sidebar to navigate homework assignments")
 # Pages
 home_page = st.Page(home, title="Home", default=True)

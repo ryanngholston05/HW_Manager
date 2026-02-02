@@ -67,26 +67,25 @@ except Exception as e:
 
 
 if summary_style == "100 words":
-    instruction = f(
+    instruction = (
         "Summarize the content in exactly 100 words. "
-        "Write as one paragraph. Do not include a title.\n\n"
-        f"IMPORTANT: Write the entire summary in {language}."
+        "Write as one paragraph. Do not include a title."
     )
+    instruction += f"\n\nIMPORTANT: Write the entire summary in {language}."
 
 elif summary_style == "2 connecting paragraphs":
-    instruction = f(
+    instruction = (
         "Summarize the content in two connected paragraphs. "
-        "Do not use bullet points.\n\n"
-        f"IMPORTANT: Write the entire summary in {language}."
+        "Do not use bullet points."
     )
+    instruction += f"\n\nIMPORTANT: Write the entire summary in {language}."
 
 else:
-    instruction = f(
+    instruction = (
         "Summarize the content in exactly 5 bullet points. "
-        "Each bullet should be one sentence.\n\n"
-        f"IMPORTANT: Write the entire summary in {language}."
+        "Each bullet should be one sentence."
     )
-
+    instruction += f"\n\nIMPORTANT: Write the entire summary in {language}."
 generate = st.button("Generate summary", disabled=not url)
 
 if url and generate:

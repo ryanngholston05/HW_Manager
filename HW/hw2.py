@@ -37,6 +37,13 @@ summary_style = st.sidebar.radio(
     ),
 )
 
+st.sidebar.header("Output Language")
+
+language = st.sidebar.selectbox(
+    "Select output language:",
+    ["English", "French", "Spanish"] 
+)
+
 use_advanced = st.sidebar.checkbox("Use advanced model", value=False)
 model = "gpt-5-mini" if use_advanced else "gpt-5-nano"
 

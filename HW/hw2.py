@@ -67,27 +67,44 @@ model = "gpt-5-mini" if use_advanced else "gpt-5-nano"
 
 if llm_provider == "OpenAI":
     model = "gpt-5-mini" if use_advanced else "gpt-5-nano"
-else:
-    llm_provider == "Claude (Anthropic)"
+else:  # Claude (Anthropic)
     model = "claude-sonnet-4-5-20250929" if use_advanced else "claude-haiku-3-5-20241022"
 
 
 
-try:
-    openai_api_key = st.secrets["OPENAI_KEY"]
-except KeyError:
-    st.error("OpenAI API key not found in Streamlit secrets.", icon="❌")
-    st.stop()
 
+# Load keys depending on provider selected
+openai_client = None
+anthropic_client = None
 
+if llm_provider == "OpenAI":
+    try:
+        openai_api_key = st.secrets["OPENAI_KEY"]
+    except KeyError:
+        st.error("OpenAI API key not found in Streamlit secrets.", icon="❌")
+        st.stop()
 
-try:
-    client = OpenAI(api_key=openai_api_key)
-    client.models.list()
-    st.success("API key loaded from secrets and validated!", icon="✅")
-except Exception as e:
-    st.error(f"Error connecting to OpenAI: {str(e)}", icon="❌")
-    st.stop()
+    try:
+        openai_client = OpenAI(api_key=openai_api_key)
+        openai_client.models.list()
+        st.success("OpenAI key validated!", icon="✅")
+    except Exception as e:
+        st.error(f"Error connecting to OpenAI: {str(e)}", icon="❌")
+        st.stop()
+
+else:  # Claude (Anthropic)
+    try:
+        anthropic_api_key = st.secrets["ANTHROPIC_KEY"]
+    except KeyError:
+        st.error("Anthropic API key not found in Streamlit secrets.", icon="❌")
+        st.stop()
+
+    try:
+        anthropic_client = validate_anthropic_key(anthropic_api_key)
+        st.success("Anthropic key validated!", icon="✅")
+    except Exception as e:
+        st.error(f"Error connecting to Anthropic: {str(e)}", icon="❌")
+        st.stop()
 
 
 if summary_style == "100 words":
@@ -125,7 +142,7 @@ if url and generate:
 
     # Call the selected LLM
     if llm_provider == "OpenAI":
-        stream = client.chat.completions.create(
+        stream = openai_client.chat.completions.create(
             model=model,
             messages=[
                 {
@@ -144,7 +161,7 @@ if url and generate:
 
     else:
         llm_provider == "Claude (Anthropic)"
-        msg = client.messages.create(
+        msg = anthropic_client.messages.create(
             model=model,
             max_tokens=600,
             messages=[
@@ -162,69 +179,3 @@ if url and generate:
 
 
 
-# try:
-#     # Create OpenAI client using secret key
-#     client = OpenAI(api_key=openai_api_key)
-
-#     # Validate API key
-#     client.models.list()
-#     st.success("API key loaded from secrets and validated!", icon="✅")
-
-#     # File uploader
-#     uploaded_file = st.file_uploader(
-#         "Upload a document (.txt or .pdf)", type=("txt", "pdf")
-#     )
-
-
-
-#     if summary_style == "100 words":
-#         instruction = (
-#             "Summarize the document in exactly 100 words. "
-#             "Write as one paragraph. Do not include a title."
-#         )
-#     elif summary_style == "2 connecting paragraphs":
-#         instruction = (
-#             "Summarize the document in two connected paragraphs. "
-#             "Keep the tone clear and professional. Do not use bullet points."
-#         )
-#     else:  # "5 bullet points"
-#         instruction = (
-#             "Summarize the document in exactly 5 bullet points. "
-#             "Each bullet should be one sentence. Do not include extra bullets."
-#         )
-
-#     generate = st.button("Generate summary", disabled=not uploaded_file)
-
-#     if uploaded_file and generate:
-#          # Process the uploaded file (txt or pdf)
-#         file_extension = uploaded_file.name.split('.')[-1].lower()
-
-#         if file_extension == 'txt':
-#             document = uploaded_file.read().decode("utf-8", errors="ignore")
-#         elif file_extension == 'pdf':
-#             document = read_pdf(uploaded_file)
-#         else:
-#             st.error("Unsupported file type.")
-#             st.stop()
-            
-#         messages = [
-#             {
-#                 "role": "system",
-#                 "content": "You are a helpful assistant that summarizes documents accurately and concisely.",
-#             },
-#             {
-#                 "role": "user",
-#                 "content": f"{instruction}\n\nDOCUMENT:\n{document}",
-#             },
-#              ] 
-#         stream = client.chat.completions.create(
-#             model=model,
-#             messages=messages,
-#             stream=True,
-#         )
-#         st.subheader("Your summary")
-#         st.write_stream(stream)
-         
-
-# except Exception as e:
-#     st.error(f"Error connecting to OpenAI: {str(e)}", icon="❌")

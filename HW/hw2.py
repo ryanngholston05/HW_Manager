@@ -3,6 +3,8 @@ from openai import OpenAI
 import requests
 from bs4 import BeautifulSoup
 
+from anthropic import Anthropic
+
 
 def read_url_content(url):
     try:
@@ -14,6 +16,14 @@ def read_url_content(url):
         st.error(f"Error reading {url}: {e}", icon="❌")
         return None
 
+def validate_anthropic_key(key: str) -> Anthropic:
+    client = Anthropic(api_key=key)
+    client.messages.create(
+        model="claude-haiku-3-5-20241022",
+        max_tokens=5,
+        messages=[{"role": "user", "content": "Hi"}],
+    )
+    return client
 
 
 # Show title and description.
@@ -44,13 +54,27 @@ language = st.sidebar.selectbox(
     ["English", "French", "Spanish"]  
 )
 
+
+st.sidebar.header("LLM Provider")
+
+llm_provider = st.sidebar.selectbox(
+    "Choose an LLM:",
+    ["OpenAI", "Claude (Anthropic)",]
+)
+
 use_advanced = st.sidebar.checkbox("Use advanced model", value=False)
 model = "gpt-5-mini" if use_advanced else "gpt-5-nano"
+
+if llm_provider == "OpenAI":
+    model = "gpt-5-mini" if use_advanced else "gpt-5-nano"
+else:
+    llm_provider == "Claude (Anthropic)"
+    model = "claude-sonnet-4-5-20250929" if use_advanced else "claude-haiku-3-5-20241022"
 
 
 
 try:
-    openai_api_key = st.secrets["API_KEY"]
+    openai_api_key = st.secrets["OPENAI_KEY"]
 except KeyError:
     st.error("OpenAI API key not found in Streamlit secrets.", icon="❌")
     st.stop()
@@ -86,36 +110,54 @@ else:
         "Each bullet should be one sentence."
     )
     instruction += f"\n\nIMPORTANT: Write the entire summary in {language}."
+
+
 generate = st.button("Generate summary", disabled=not url)
 
 if url and generate:
+    # Read text from the URL
     document = read_url_content(url)
 
     if not document:
         st.stop()
 
-    messages = [
-        {
-            "role": "system",
-            "content": "You are a helpful assistant that summarizes web content accurately and concisely.",
-        },
-        {
-            "role": "user",
-            "content": f"{instruction}\n\nURL CONTENT:\n{document}",
-        },
-    ]
+    prompt = f"{instruction}\n\nURL CONTENT:\n{document}"
 
-    stream = client.chat.completions.create(
-        model=model,
-        messages=messages,
-        stream=True,
-    )
+    # Call the selected LLM
+    if llm_provider == "OpenAI":
+        stream = client.chat.completions.create(
+            model=model,
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You summarize web pages accurately and concisely.",
+                },
+                {
+                    "role": "user",
+                    "content": prompt,
+                },
+            ],
+            stream=True,
+        )
+        st.subheader("Your summary")
+        st.write_stream(stream)
 
-    st.subheader("Your summary")
-    st.write_stream(stream)
+    else:
+        llm_provider == "Claude (Anthropic)"
+        msg = client.messages.create(
+            model=model,
+            max_tokens=600,
+            messages=[
+                {
+                    "role": "user",
+                    "content": prompt,
+                }
+            ],
+        )
+        st.subheader("Your summary")
+        st.write(msg.content[0].text)
 
-
-
+   
 
 
 

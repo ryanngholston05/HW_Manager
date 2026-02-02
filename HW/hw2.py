@@ -19,7 +19,7 @@ def read_url_content(url):
 def validate_anthropic_key(key: str) -> Anthropic:
     client = Anthropic(api_key=key)
     client.messages.create(
-        model="claude-haiku-3-5-20241022",
+        model="claude-opus-4-5-20251101",
         max_tokens=5,
         messages=[{"role": "user", "content": "Hi"}],
     )
@@ -68,7 +68,7 @@ model = "gpt-5-mini" if use_advanced else "gpt-5-nano"
 if llm_provider == "OpenAI":
     model = "gpt-5-mini" if use_advanced else "gpt-5-nano"
 else:  # Claude (Anthropic)
-    model = "claude-sonnet-4-5-20250929" if use_advanced else "claude-haiku-3-5-20241022"
+    model = "claude-sonnet-4-5-20250929" if use_advanced else "claude-opus-4-5-20251101"
 
 
 

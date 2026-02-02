@@ -70,16 +70,20 @@ if summary_style == "100 words":
     instruction = (
         "Summarize the content in exactly 100 words. "
         "Write as one paragraph. Do not include a title."
+        f""\n\n"IMPORTANT: Write the entire summary in {language}."
     )
+    
 elif summary_style == "2 connecting paragraphs":
     instruction = (
         "Summarize the content in two connected paragraphs. "
         "Do not use bullet points."
+        f""\n\n"IMPORTANT: Write the entire summary in {language}."
     )
 else:
     instruction = (
         "Summarize the content in exactly 5 bullet points. "
         "Each bullet should be one sentence."
+        f""\n\n"IMPORTANT: Write the entire summary in {language}."
     )
 
 generate = st.button("Generate summary", disabled=not url)

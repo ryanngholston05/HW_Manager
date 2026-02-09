@@ -1,5 +1,9 @@
 import streamlit as st
 from openai import OpenAI
+import requests
+from bs4 import BeautifulSoup
+
+
 
 SYSTEM_PROMPT = """
 You are a helpful chatbot for a student.
@@ -11,6 +15,17 @@ If the user says "No" (or anything similar like "nope", "no thanks"), ask what y
 
 Keep following this pattern for every interaction.
 """
+
+def read_url_content(url):
+    try:
+        response = requests.get(url)
+        response.raise_for_status() # Raise an exception for HTTP errors
+        soup = BeautifulSoup(response.content, 'html.parser')
+        return soup.get_text()
+    except requests.RequestException as e:
+        st.error(f"Error reading {url}: {e}", icon="❌")
+        return None
+
 
 
 
@@ -61,13 +76,23 @@ def keep_last_n_user_turns(messages, n_user_turns=2, keep_first_assistant=True):
 
 
 
-st.title("My Lab3 question answering chatbot")
-openAI_Model = st.sidebar.selectbox("Which model?",
-                                    ("mini", "regular"))
-if openAI_Model == "mini":
-    model_to_use = "gpt-4o-mini"
+
+
+st.title("Homework 3 Answering Chatbot")
+
+
+
+st.sidebar.header("LLM Provider")
+
+llm_provider = st.sidebar.selectbox(
+    "Choose an LLM:",
+    ["OpenAI", "Claude (Anthropic)",]
+)
+
+if llm_provider == "OpenAI":
+    model_to_use = "gpt-5.2-pro"
 else:
-    model_to_use = "gpt-4o-mini"
+    model_to_use = "claude-opus-4-5-20251101"
 
 
 #create an OpenAI client

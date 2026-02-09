@@ -15,6 +15,24 @@ If the user says "No" (or anything similar like "nope", "no thanks"), ask what y
 Keep following this pattern for every interaction.
 """
 
+@st.cache_data(show_spinner=False)
+def get_baseball_context(which: str) -> str:
+    url1 = "https://www.howbaseballworks.com/TheBasics.htm"
+    url2 = "https://www.pbs.org/kenburns/baseball/baseball-for-beginners"
+
+    texts = []
+    if which in ("URL 1", "Both"):
+        t1 = read_url_content(url1)
+        if t1: texts.append(f"[SOURCE 1: {url1}]\n{t1}")
+    if which in ("URL 2", "Both"):
+        t2 = read_url_content(url2)
+        if t2: texts.append(f"[SOURCE 2: {url2}]\n{t2}")
+
+    return "\n\n".join(texts)
+
+
+
+
 def read_url_content(url):
     try:
         response = requests.get(url)
@@ -78,12 +96,31 @@ def keep_last_n_user_turns(messages, n_user_turns=2, keep_first_assistant=True):
 
 st.title("Homework 3 Answering Chatbot")
 
+
+st.write(
+    "This chatbot answers questions using rules in a permanent system prompt. "
+    "It explains baseball in simple, kid-friendly language and always asks "
+    "\"Do you want more info?\" after each answer. "
+    "It also uses webpage context from the selected baseball source(s). "
+    "Conversation memory: the bot keeps the last 6 messages (3 user–assistant exchanges), "
+    "while the system prompt + baseball sources are never discarded."
+)
+
+
 st.sidebar.header("LLM Provider")
 
 llm_provider = st.sidebar.selectbox(
     "Choose an LLM:",
     ["OpenAI", "Claude (Anthropic)"]
 )
+
+st.sidebar.header("Baseball Context")
+context_choice = st.sidebar.selectbox("Use which sources?", ["URL 1", "URL 2", "Both"])
+baseball_context = get_baseball_context(context_choice)
+
+SYSTEM_WITH_CONTEXT = SYSTEM_PROMPT + "\n\nIMPORTANT BASEBALL REFERENCE (use this to answer):\n" + baseball_context
+
+
 
 if llm_provider == "OpenAI":
     model_to_use = "gpt-5-mini"
@@ -125,9 +162,12 @@ if st.session_state.client is None:
 # Initialize messages
 if "messages" not in st.session_state:
     st.session_state.messages = [
-        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "system", "content": SYSTEM_WITH_CONTEXT},
         {"role": "assistant", "content": "Hi! What question do you have?"}
     ]
+else:
+    # Always keep system prompt updated (never discarded)
+    st.session_state.messages[0]["content"] = SYSTEM_WITH_CONTEXT
 
 # Display conversation history
 for msg in st.session_state.messages:
@@ -146,7 +186,7 @@ if prompt := st.chat_input("What is up?"):
     # Only send the last 2 user turns (conversation buffer)
     messages_for_llm = keep_last_n_user_turns(
         st.session_state.messages,
-        n_user_turns=2
+        n_user_turns=3
     )
 
     # Get response (non-streaming)

@@ -2,8 +2,7 @@ import streamlit as st
 from openai import OpenAI
 import requests
 from bs4 import BeautifulSoup
-
-
+from anthropic import Anthropic
 
 SYSTEM_PROMPT = """
 You are a helpful chatbot for a student.
@@ -19,24 +18,28 @@ Keep following this pattern for every interaction.
 def read_url_content(url):
     try:
         response = requests.get(url)
-        response.raise_for_status() # Raise an exception for HTTP errors
+        response.raise_for_status()
         soup = BeautifulSoup(response.content, 'html.parser')
         return soup.get_text()
     except requests.RequestException as e:
         st.error(f"Error reading {url}: {e}", icon="❌")
         return None
 
-
-
+def validate_anthropic_key(key: str) -> Anthropic:
+    client = Anthropic(api_key=key)
+    client.messages.create(
+        model="claude-opus-4-5-20251101",
+        max_tokens=5,
+        messages=[{"role": "user", "content": "Hi"}],
+    )
+    return client
 
 def keep_last_n_user_turns(messages, n_user_turns=2, keep_first_assistant=True):
-
     """
     Keep only the last n user turns in the conversation.
     Always preserves the system message.
     Optionally preserves the first assistant message.
     """
-
     if not messages:
         return messages
 
@@ -50,7 +53,6 @@ def keep_last_n_user_turns(messages, n_user_turns=2, keep_first_assistant=True):
     if keep_first_assistant and start_idx < len(messages) and messages[start_idx]["role"] == "assistant":
         preserved.append(messages[start_idx])
         start_idx += 1
-
 
     # Find indices of user messages
     user_idxs = [i for i in range(start_idx, len(messages)) if messages[i]["role"] == "user"]
@@ -74,19 +76,13 @@ def keep_last_n_user_turns(messages, n_user_turns=2, keep_first_assistant=True):
 
     return preserved + kept
 
-
-
-
-
 st.title("Homework 3 Answering Chatbot")
-
-
 
 st.sidebar.header("LLM Provider")
 
 llm_provider = st.sidebar.selectbox(
     "Choose an LLM:",
-    ["OpenAI", "Claude (Anthropic)",]
+    ["OpenAI", "Claude (Anthropic)"]
 )
 
 if llm_provider == "OpenAI":
@@ -94,30 +90,51 @@ if llm_provider == "OpenAI":
 else:
     model_to_use = "claude-opus-4-5-20251101"
 
-
-#create an OpenAI client
+# Initialize client once in session state
 if 'client' not in st.session_state:
-    api_key = st.secrets["OPENAI_KEY"]
-    st.session_state.client = OpenAI(api_key=api_key)
+    if llm_provider == "OpenAI":
+        try:
+            openai_api_key = st.secrets["OPENAI_KEY"]
+            st.session_state.client = OpenAI(api_key=openai_api_key)
+            st.session_state.client.models.list()
+            st.success("OpenAI key validated!", icon="✅")
+        except KeyError:
+            st.error("OpenAI API key not found in Streamlit secrets.", icon="❌")
+            st.stop()
+        except Exception as e:
+            st.error(f"Error connecting to OpenAI: {str(e)}", icon="❌")
+            st.stop()
+    else:  # Claude (Anthropic)
+        try:
+            anthropic_api_key = st.secrets["ANTHROPIC_KEY"]
+            st.session_state.client = validate_anthropic_key(anthropic_api_key)
+            st.success("Anthropic key validated!", icon="✅")
+        except KeyError:
+            st.error("Anthropic API key not found in Streamlit secrets.", icon="❌")
+            st.stop()
+        except Exception as e:
+            st.error(f"Error connecting to Anthropic: {str(e)}", icon="❌")
+            st.stop()
 
+# Initialize messages
 if "messages" not in st.session_state:
-    st.session_state["messages"] = [
+    st.session_state.messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
         {"role": "assistant", "content": "Hi! What question do you have?"}
     ]
 
+# Display conversation history
 for msg in st.session_state.messages:
-    if msg["role"] != "system":  # Don't display system message
+    if msg["role"] != "system":
         chat_msg = st.chat_message(msg["role"])
         chat_msg.write(msg["content"])
 
-if prompt:= st.chat_input("What is up?"):
+# Handle user input
+if prompt := st.chat_input("What is up?"):
     st.session_state.messages.append({"role": "user", "content": prompt})
 
     with st.chat_message("user"):
         st.markdown(prompt)
-
-    client = st.session_state.client
 
     # Only send the last 2 user turns (conversation buffer)
     messages_for_llm = keep_last_n_user_turns(
@@ -125,20 +142,14 @@ if prompt:= st.chat_input("What is up?"):
         n_user_turns=2
     )
 
-    stream = client.chat.completions.create(
+    stream = st.session_state.client.chat.completions.create(
         model=model_to_use,
         messages=messages_for_llm,
         stream=True
     )
 
-    
     with st.chat_message("assistant"):
         response = st.write_stream(stream)
 
     st.session_state.messages.append({"role": "assistant", "content": response})
-
     st.session_state.messages = keep_last_n_user_turns(st.session_state.messages, n_user_turns=2)
-
-
-
-

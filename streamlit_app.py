@@ -12,5 +12,5 @@ hw2_page  = st.Page("HW/hw2.py", title="Homework 2")
 hw3_page  = st.Page("HW/hw3.py", title="Homework 3")
 
 # Navigation
-pg = st.navigation([home_page, hw1_page, hw2_page])
+pg = st.navigation([home_page, hw1_page, hw2_page, hw3_page])
 pg.run()

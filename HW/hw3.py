@@ -86,7 +86,7 @@ llm_provider = st.sidebar.selectbox(
 )
 
 if llm_provider == "OpenAI":
-    model_to_use = "gpt-5.2-pro"
+    model_to_use = "gpt-5-mini"
 else:
     model_to_use = "claude-opus-4-5-20251101"
 

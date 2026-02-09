@@ -148,14 +148,44 @@ if prompt := st.chat_input("What is up?"):
         n_user_turns=2
     )
 
-    stream = st.session_state.client.chat.completions.create(
+    
+    if llm_provider == "OpenAI":
+        completion = st.session_state.client.chat.completions.create(
+            model=model_to_use,
+            messages=messages_for_llm
+        )
+    response = completion.choices[0].message.content
+
+else:
+    # Anthropic expects system separately, and only user/assistant in messages
+    system_text = ""
+    converted = []
+
+    for m in messages_for_llm:
+        if m["role"] == "system":
+            system_text = m["content"]
+        elif m["role"] in ("user", "assistant"):
+            converted.append({"role": m["role"], "content": m["content"]})
+
+    completion = st.session_state.client.messages.create(
         model=model_to_use,
-        messages=messages_for_llm,
-        stream=True
+        max_tokens=800,
+        system=system_text,
+        messages=converted,
     )
 
-    with st.chat_message("assistant"):
-        response = st.write_stream(stream)
+    # Anthropic returns a list of content blocks; grab the text
+    response = completion.content[0].text
+
+with st.chat_message("assistant"):
+    st.write(response)
+
+
+
+
+
+
+
 
     st.session_state.messages.append({"role": "assistant", "content": response})
     st.session_state.messages = keep_last_n_user_turns(st.session_state.messages, n_user_turns=2)

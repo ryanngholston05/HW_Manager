@@ -90,8 +90,13 @@ if llm_provider == "OpenAI":
 else:
     model_to_use = "claude-opus-4-5-20251101"
 
-# Initialize client once in session state
-if 'client' not in st.session_state:
+# If the user changes the provider, reset the client so we rebuild it correctly
+if "provider" not in st.session_state or st.session_state.provider != llm_provider:
+    st.session_state.provider = llm_provider
+    st.session_state.client = None  # force rebuild
+
+# Build/validate the client
+if st.session_state.client is None:
     if llm_provider == "OpenAI":
         try:
             openai_api_key = st.secrets["OPENAI_KEY"]
@@ -104,7 +109,7 @@ if 'client' not in st.session_state:
         except Exception as e:
             st.error(f"Error connecting to OpenAI: {str(e)}", icon="❌")
             st.stop()
-    else:  # Claude (Anthropic)
+    else:
         try:
             anthropic_api_key = st.secrets["ANTHROPIC_KEY"]
             st.session_state.client = validate_anthropic_key(anthropic_api_key)
@@ -115,6 +120,7 @@ if 'client' not in st.session_state:
         except Exception as e:
             st.error(f"Error connecting to Anthropic: {str(e)}", icon="❌")
             st.stop()
+
 
 # Initialize messages
 if "messages" not in st.session_state:

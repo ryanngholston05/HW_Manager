@@ -10,7 +10,8 @@ home_page = st.Page(home, title="Home", default=True)
 hw1_page  = st.Page("HW/hw1.py", title="Homework 1")
 hw2_page  = st.Page("HW/hw2.py", title="Homework 2")
 hw3_page  = st.Page("HW/hw3.py", title="Homework 3")
+hw4_page  = st.Page("HW/hw4.py", title="Homework 4")
 
 # Navigation
-pg = st.navigation([home_page, hw1_page, hw2_page, hw3_page])
+pg = st.navigation([home_page, hw1_page, hw2_page, hw3_page, hw4_page])
 pg.run()

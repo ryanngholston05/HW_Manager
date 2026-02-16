@@ -154,7 +154,7 @@ if 'HW4_VectorDB' not in st.session_state:
     
     if existing_docs == 0:
         st.info("Creating vector database from HTML files...")
-        load_htmls_to_collection('HW/hw4-Data/', collection)
+        load_htmls_to_collection('hw4-Data/', collection)
     else:
         st.info(f"Vector database already exists with {existing_docs} documents")
     

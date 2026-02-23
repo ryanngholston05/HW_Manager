@@ -21,6 +21,24 @@ chroma_client = chromadb.PersistentClient(path='./ChromaDB_for_Lab')
 collection = chroma_client.get_or_create_collection('Lab4collection')
 
 
+def relevant_course_info(query: str, collection, client, n_results: int = 3) -> str:
+    # embed the query
+    emb = client.embeddings.create(
+        input=query,
+        model="text-embedding-3-small"
+    ).data[0].embedding
+
+    # vector search
+    results = collection.query(
+        query_embeddings=[emb],
+        n_results=n_results
+    )
+
+    # join retrieved text
+    docs = results["documents"][0] if results and results.get("documents") else []
+    return "\n\n---\n\n".join(docs)
+
+
 def keep_last_n_user_turns(messages, n_user_turns):
     # Keep system message
     result = [msg for msg in messages if msg["role"] == "system"]
@@ -109,7 +127,7 @@ else:
 
 #### MAIN APP ####
 
-st.title('Lab 4: Chatbot using RAG')
+st.title('HW5: Short-Term Memory RAG Chatbot')
 
 #### QUERYING A COLLECTION -- ONLY USED FOR TESTING ####
 
@@ -184,38 +202,32 @@ if prompt:= st.chat_input("What is up?"):
         st.markdown(prompt)
 
     
-     # RAG: Get relevant documents from ChromaDB
+        # --- RAG (function-based) ---
     client = st.session_state.openai_client
-    response = client.embeddings.create(
-        input=prompt,
-        model='text-embedding-3-small')
-    
-    query_embedding = response.data[0].embedding
-
-
-    # Query the collection
     collection = st.session_state.Lab4_VectorDB
-    results = collection.query(
-        query_embeddings=[query_embedding],
-        n_results=3
+
+    # retrieve context using your function
+    context = relevant_course_info(prompt, collection, client, n_results=3)
+
+    # Only send the last 2 user turns (conversation buffer)
+    messages_for_llm = keep_last_n_user_turns(
+        st.session_state.messages,
+        n_user_turns=2
     )
 
-    # Get the relevant documents
-    relevant_docs = "\n\n".join(results['documents'][0])
-        
-    # Create enhanced prompt with RAG context
-    rag_prompt = f"""Based on the following course materials:
+    # Inject retrieved context as a separate message (don't overwrite user message)
+    messages_for_llm.insert(
+        1,  # right after system prompt
+        {
+            "role": "system",
+            "content": f"""Use the following course materials to answer the user's question.
+If the answer is not in the materials, say so.
 
-{relevant_docs}
-
-
-
-User question: {prompt}
-
-Please answer the question using the information from the course materials above. If you use information from these materials, mention that it comes from the course content."""
-
-    # Replace the user's prompt with the RAG-enhanced version
-    st.session_state.messages[-1]["content"] = rag_prompt
+COURSE MATERIALS:
+    {context}
+"""
+        }
+    )
 
     # Only send the last 2 user turns (conversation buffer)
     messages_for_llm = keep_last_n_user_turns(

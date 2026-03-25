@@ -17,7 +17,7 @@ If the answer comes from the dataset, clearly mention that.
 __import__('pysqlite3')
 sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
 
-chroma_client = chromadb.PersistentClient(path='./ChromaDB_for_HW4')
+chroma_client = chromadb.PersistentClient(path='./ChromaDB_for_HW7')
 collection = chroma_client.get_or_create_collection('HW7_News')
 
 
@@ -32,7 +32,7 @@ def load_csv_to_collection(csv_path, collection):
 
     for idx, row in df.iterrows():
         # Combine relevant columns
-        text = f"Title: {row['title']}\nContent: {row['text']}"
+        text = f"Company: {row['company_name']}\nDate: {row['Date']}\nArticle: {row['Document']}\nURL: {row['URL']}"
 
         # Optional: chunk (depends on assignment)
         chunks = chunk_text_simple_split(text)
@@ -121,7 +121,7 @@ if 'openai_client' not in st.session_state:
 
 
 # Load htmls to collection (only once)
-if 'HW4_VectorDB' not in st.session_state:
+if 'HW7_VectorDB' not in st.session_state:
     # Check if collection already has documents
     existing_docs = collection.count()
     
@@ -131,9 +131,9 @@ if 'HW4_VectorDB' not in st.session_state:
     else:
         st.info(f"Vector database already exists with {existing_docs} documents")
     
-    st.session_state.HW4_VectorDB = collection
+    st.session_state.HW7_VectorDB = collection
 else:
-    collection = st.session_state.HW4_VectorDB
+    collection = st.session_state.HW7_VectorDB
 
 
 
@@ -185,7 +185,7 @@ if prompt:= st.chat_input("What is up?"):
 
 
     # Query the collection
-    collection = st.session_state.HW4_VectorDB
+    collection = st.session_state.HW7_VectorDB
     results = collection.query(
         query_embeddings=[query_embedding],
         n_results=3

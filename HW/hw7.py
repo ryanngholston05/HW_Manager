@@ -67,34 +67,6 @@ def chunk_text_simple_split(text):
 
 
 
-def load_htmls_to_collection(folder_path, collection):
-    """
-    Load all HTML files from a folder, chunk them, and add to the collection.
-    Each HTML file is split into 2 chunks
-    """
-    folder = Path(folder_path)
-    html_files = list(folder.glob("*.html"))  # Find all HTML files
-    
-    if not html_files:
-        st.warning(f"No HTML files found in {folder_path}")
-        return collection
-    
-    for html_file in html_files:
-        # Extract text from HTML
-        text = extract_from_html(html_file)
-        
-        # Chunk the document into 2 parts (as required by assignment)
-        chunks = chunk_text_simple_split(text)
-        
-        # Add each chunk to collection with unique ID
-        for i, chunk in enumerate(chunks):
-            chunk_id = f"{html_file.name}_chunk_{i+1}"
-            add_to_collection(collection, chunk, chunk_id)
-    
-    st.success(f"Loaded {len(html_files)} HTML files into the vector database")
-    return collection
-
-
 
 
 def keep_last_n_user_turns(messages, n_user_turns):

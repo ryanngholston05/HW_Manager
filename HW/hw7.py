@@ -3,6 +3,7 @@ from openai import OpenAI
 import pandas as pd
 import chromadb
 import sys
+from pathlib import Path
 
 # fix sqlite issue on Streamlit Cloud
 __import__('pysqlite3')
@@ -45,7 +46,8 @@ def add_to_collection(text, doc_id):
 
 if "data_loaded" not in st.session_state:
     if collection.count() == 0:
-        df = pd.read_csv("news.csv")
+        csv_path = Path(__file__).parent / "news.csv"
+        df = pd.read_csv(csv_path)
 
         for i, row in df.iterrows():
             text = (

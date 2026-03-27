@@ -1,229 +1,146 @@
 import streamlit as st
 from openai import OpenAI
-import sys
+import pandas as pd
 import chromadb
-from pathlib import Path
-from bs4 import BeautifulSoup
+import sys
 
-SYSTEM_PROMPT = """
-
-You are a helpful assistant that answers questions about news articles.
-
-Use the provided news dataset to answer user questions.
-If the answer comes from the dataset, clearly mention that.
-
-"""
-
+# fix sqlite issue on Streamlit Cloud
 __import__('pysqlite3')
 sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
 
-chroma_client = chromadb.PersistentClient(path='./ChromaDB_for_HW7')
-collection = chroma_client.get_or_create_collection('HW7_News')
+SYSTEM_PROMPT = """
+You are a helpful assistant that answers questions about news articles.
+
+Use the news dataset to answer the user's question.
+If the answer comes from the dataset, mention that.
+If the dataset does not have enough information, say that clearly.
+"""
 
 
-import pandas as pd
+if "openai_client" not in st.session_state:
+    api_key = st.secrets["OPENAI_KEY"]
+    st.session_state.openai_client = OpenAI(api_key=api_key)
 
-csv_path = 'news.csv'
-def load_csv_to_collection(csv_path, collection):
-    df = pd.read_csv(csv_path)
-
-    st.write(df.columns)  
-    st.write(df.head())
-
-    for idx, row in df.iterrows():
-        # Combine relevant columns
-        text = f"Company: {row['company_name']}\nDate: {row['Date']}\nArticle: {row['Document']}\nURL: {row['URL']}"
-
-        # Optional: chunk (depends on assignment)
-        chunks = chunk_text_simple_split(text)
-
-        for i, chunk in enumerate(chunks):
-            chunk_id = f"row_{idx}_chunk_{i+1}"
-            add_to_collection(collection, chunk, chunk_id)
-
-    st.success(f"Loaded {len(df)} rows into vector database")
-    
-
-def chunk_text_simple_split(text):
-
-    """
-        CHUNKING METHOD: Simple split into two equal parts
-        
-        WHY THIS METHOD:
-        - requirement of creating exactly 2 chunks per document
-        - preserves document context by keeping each half together
-        - splitting in the middle usually keeps related information together
-        - easier to understand and debug
-    """
+client = st.session_state.openai_client
 
 
-    words = text.split()
-    mid_point = len(words) // 2
-    
-    chunk1 = ' '.join(words[:mid_point])
-    chunk2 = ' '.join(words[mid_point:])
-    
-    return [chunk1, chunk2]
+chroma_client = chromadb.PersistentClient(path="./ChromaDB_for_HW7")
+collection = chroma_client.get_or_create_collection("HW7_news")
 
 
-
-
-
-def keep_last_n_user_turns(messages, n_user_turns):
-    # Keep system message
-    result = [msg for msg in messages if msg["role"] == "system"]
-    
-    # Count user messages
-    user_messages = [msg for msg in messages if msg["role"] == "user"]
-    
-    if len(user_messages) <= n_user_turns:
-        # Keep all messages
-        result.extend([msg for msg in messages if msg["role"] != "system"])
-    else:
-        # Keep only last n user turns and their responses
-        user_count = 0
-        for msg in reversed(messages):
-            if msg["role"] == "user":
-                user_count += 1
-            if user_count <= n_user_turns:
-                result.insert(1, msg)  # Insert after system message
-    
-    return result
-
-
-
-
-def add_to_collection(collection, text, file_name):
-
-    #create an emmbedding
-    client = st.session_state.openai_client
+def add_to_collection(text, doc_id):
     response = client.embeddings.create(
         input=text,
-        model='text-embedding-3-small'
+        model="text-embedding-3-small"
     )
 
-    #get the embedding
     embedding = response.data[0].embedding
 
     collection.add(
         documents=[text],
-        ids=[file_name],
+        ids=[doc_id],
         embeddings=[embedding]
     )
 
 
+if "data_loaded" not in st.session_state:
+    if collection.count() == 0:
+        df = pd.read_csv("news.csv")
 
+        for i, row in df.iterrows():
+            text = (
+                "Company: " + str(row["company_name"]) + "\n"
+                + "Date: " + str(row["Date"]) + "\n"
+                + "Article: " + str(row["Document"]) + "\n"
+                + "URL: " + str(row["URL"])
+            )
 
-    
-if 'openai_client' not in st.session_state:
-    api_key = st.secrets["OPENAI_KEY"]
-    st.session_state.openai_client = OpenAI(api_key=api_key)
+            add_to_collection(text, "row_" + str(i))
 
-
-# Load htmls to collection (only once)
-if 'HW7_VectorDB' not in st.session_state:
-    # Check if collection already has documents
-    existing_docs = collection.count()
-    
-    if existing_docs == 0:
-        st.info("Creating vector database from HTML files...")
-        load_csv_to_collection('news.csv', collection)
+        st.success("News data loaded into vector database.")
     else:
-        st.info(f"Vector database already exists with {existing_docs} documents")
-    
-    st.session_state.HW7_VectorDB = collection
-else:
-    collection = st.session_state.HW7_VectorDB
+        st.info("Vector database already has data.")
 
+    st.session_state["data_loaded"] = True
 
+st.title("Homework 7: News Chatbot using RAG")
 
+model_choice = st.sidebar.selectbox(
+    "Which model?",
+    ["mini", "regular"]
+)
 
-
-
-
-#### MAIN APP ####
-
-st.title('Homework 7: News Chatbot using RAG')
-
-
-openAI_Model = st.sidebar.selectbox("Which model?",
-                                    ("mini", "regular"))
-if openAI_Model == "mini":
+if model_choice == "mini":
     model_to_use = "gpt-4o-mini"
 else:
     model_to_use = "gpt-4o-mini"
 
 
-
-# Initialize messages
 if "messages" not in st.session_state:
     st.session_state["messages"] = [
         {"role": "system", "content": SYSTEM_PROMPT},
-        {"role": "assistant", "content": "Hi! Ask me anything about the news articles dataset."}
+        {"role": "assistant", "content": "Hi! Ask me a question about the news dataset."}
     ]
 
+# show previous messages
+for message in st.session_state["messages"]:
+    if message["role"] != "system":
+        with st.chat_message(message["role"]):
+            st.write(message["content"])
 
-for msg in st.session_state.messages:
-    if msg["role"] != "system":  # Don't display system message
-        chat_msg = st.chat_message(msg["role"])
-        chat_msg.write(msg["content"])
+prompt = st.chat_input("Ask a question about the news articles...")
 
-if prompt:= st.chat_input("What is up?"):
-    st.session_state.messages.append({"role": "user", "content": prompt})
-
+if prompt:
+    # show user message
+    st.session_state["messages"].append({"role": "user", "content": prompt})
     with st.chat_message("user"):
-        st.markdown(prompt)
+        st.write(prompt)
 
-    
-     # RAG: Get relevant documents from ChromaDB
-    client = st.session_state.openai_client
+    # create embedding for user question
     response = client.embeddings.create(
         input=prompt,
-        model='text-embedding-3-small')
-    
-    query_embedding = response.data[0].embedding
+        model="text-embedding-3-small"
+    )
+    question_embedding = response.data[0].embedding
 
-
-    # Query the collection
-    collection = st.session_state.HW7_VectorDB
+    # search vector db
     results = collection.query(
-        query_embeddings=[query_embedding],
+        query_embeddings=[question_embedding],
         n_results=3
     )
 
-    # Get the relevant documents
-    relevant_docs = "\n\n".join(results['documents'][0])
-        
-    # Create enhanced prompt with RAG context
-    rag_prompt = f"""Based on the following news articles:
+    # combine retrieved documents
+    relevant_docs = "\n\n".join(results["documents"][0])
+
+    # build prompt for model
+    rag_prompt = f"""
+Here is information from the news dataset:
 
 {relevant_docs}
 
 User question: {prompt}
 
-Answer using the articles above. If the information comes from the dataset, mention it explicitly.
+Answer the question using the dataset information above.
+Make it clear when your answer is based on the news dataset.
+If the dataset does not contain enough information, say that.
 """
-    
-    # Replace the user's prompt with the RAG-enhanced version
-    st.session_state.messages[-1]["content"] = rag_prompt
-    
-    # Only send the last 5 user turns (conversation buffer as required)
-    messages_for_llm = keep_last_n_user_turns(
-        st.session_state.messages,
-        n_user_turns=5
-    )
-    
-    # Generate response with streaming
+
+    # only send a simple set of messages to the model
+    messages_for_model = [
+        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "user", "content": rag_prompt}
+    ]
+
+    # get response
     stream = client.chat.completions.create(
         model=model_to_use,
-        messages=messages_for_llm,
+        messages=messages_for_model,
         stream=True
     )
-    
+
     with st.chat_message("assistant"):
         response_text = st.write_stream(stream)
 
-
-    st.session_state.messages.append({"role": "assistant", "content": response_text})
-
-    st.session_state.messages = keep_last_n_user_turns(st.session_state.messages, n_user_turns=5)
+    st.session_state["messages"].append(
+        {"role": "assistant", "content": response_text}
+    )
